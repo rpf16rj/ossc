@@ -91,7 +91,7 @@ int fw_update(char *dirname, char *filename) {
         strlcpy(menu_row2, "Please wait...", LCD_ROW_LEN+1);
         ui_disp_menu(1);
 
-        if (f_read(&fw_file, &hdr, sizeof(hdr), &bytes_read) != F_OK) {
+        if ((f_read(&fw_file, &hdr, sizeof(hdr), &bytes_read) != F_OK) || (bytes_read != sizeof(hdr))) {
             printf("FW hdr read error\n");
             retval = -3;
             goto close_file;
@@ -135,9 +135,10 @@ int fw_update(char *dirname, char *filename) {
         while (1) {
             btn_vec = IORD_ALTERA_AVALON_PIO_DATA(PIO_1_BASE) & RC_MASK;
 
-            if (btn_vec == rc_keymap[RC_BTN1]) {
+            // guard against zeroed/corrupt keymap matching an idle bus (btn_vec==0)
+            if (btn_vec && (btn_vec == rc_keymap[RC_BTN1])) {
                 break;
-            } else if (btn_vec == rc_keymap[RC_BTN2]) {
+            } else if (btn_vec && (btn_vec == rc_keymap[RC_BTN2])) {
                 set_func_ret_msg("Cancelled");
                 retval = 1;
                 goto close_file;
@@ -251,9 +252,17 @@ void __attribute__((noinline, flatten, noreturn, __section__(".text_bram"))) fw_
 
     // Write data
     while (bytes_to_copy > 0) {
+        int retry;
         bytes_read = (bytes_to_copy > SD_BLK_SIZE) ? SD_BLK_SIZE : bytes_to_copy;
-        res = SD_Read(&sdcard_dev, tmpbuf, ((cluster_idx[cl_iter]-2)*fs_csize+fs_startsec+cl_soffs), 0, bytes_read);
-        //TODO: retry if read fails
+        for (retry = 0; retry < 4; retry++) {
+            res = SD_Read(&sdcard_dev, tmpbuf, ((cluster_idx[cl_iter]-2)*fs_csize+fs_startsec+cl_soffs), 0, bytes_read);
+            if (res == SD_OK)
+                break;
+        }
+        if (res != SD_OK) {
+            // cannot write stale data to flash; FPGA stays in current image until reset
+            while (1) {}
+        }
 
         bytes_to_copy -= bytes_read;
         for (i=0; i<bytes_read; i++)

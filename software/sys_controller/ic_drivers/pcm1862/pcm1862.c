@@ -65,7 +65,12 @@ void pcm_set_stereo_mode(int mono_enable) {
         pcm1862_writereg(PCM1862_DSP2_WDATA1, (ch_cfg[i] >> 8) & 0xff);
         pcm1862_writereg(PCM1862_DSP2_WDATA2, ch_cfg[i] & 0xff);
         pcm1862_writereg(PCM1862_DSP2_CFG, (1<<0));
-        while ((pcm1862_readreg(PCM1862_DSP2_CFG) & ((1<<0)|(1<<2))) != 0) {}
+        // DSP write takes a few hundred us; bound the poll so a missing/hung
+        // chip cannot wedge the main loop forever
+        for (int t=0; t<1000; t++) {
+            if ((pcm1862_readreg(PCM1862_DSP2_CFG) & ((1<<0)|(1<<2))) == 0)
+                break;
+        }
     }
 
     /*for (i=0; i<12; i++) {

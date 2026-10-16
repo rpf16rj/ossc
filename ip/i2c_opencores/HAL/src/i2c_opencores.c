@@ -13,6 +13,17 @@
 /* these functions are polled only.  */
 /* all functions wait until the I2C is done before exiting */
 
+/* Bounded TIP wait: a stuck bus (SDA held low, missing core clock) would
+   otherwise hang the CPU forever. ~100k poll iterations >> worst-case transfer
+   time at 100kHz (~1ms). Returns nonzero when the wait timed out. */
+#define I2C_TIP_TIMEOUT 100000
+static int i2c_tip_wait(alt_u32 base)
+{
+    alt_u32 n = I2C_TIP_TIMEOUT;
+    while ((IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_TIP_MSK) && n--) {}
+    return (n == (alt_u32)-1);
+}
+
 
 /****************************************************************
 int I2C_init
@@ -69,7 +80,8 @@ int I2C_start(alt_u32 base, alt_u32 add, alt_u32 read)
   IOWR_I2C_OPENCORES_CR(base, I2C_OPENCORES_CR_STA_MSK | I2C_OPENCORES_CR_WR_MSK );
 
           /* wait for the trnasaction to be over.*/
-  while (IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_TIP_MSK) {}
+  if (i2c_tip_wait(base))
+      return (I2C_NOACK);
 
          /* now check to see if the address was acknowledged */
    if(IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_RXNACK_MSK)
@@ -119,7 +131,7 @@ alt_u32 I2C_read(alt_u32 base,alt_u32 last)
           IOWR_I2C_OPENCORES_CR(base, I2C_OPENCORES_CR_RD_MSK );
   }
           /* wait for the trnasaction to be over.*/
-  while (IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_TIP_MSK) {}
+  i2c_tip_wait(base);
 
          /* now read the data */
         return (IORD_I2C_OPENCORES_RXR(base));
@@ -162,7 +174,8 @@ alt_u32 I2C_write(alt_u32 base,alt_u8 data, alt_u32 last)
           IOWR_I2C_OPENCORES_CR(base, I2C_OPENCORES_CR_WR_MSK );
   }
            /* wait for the trnasaction to be over.*/
-  while (IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_TIP_MSK) {}
+  if (i2c_tip_wait(base))
+      return (I2C_NOACK);
 
          /* now check to see if the address was acknowledged */
    if(IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_RXNACK_MSK)
@@ -190,7 +203,7 @@ void __attribute__((noinline, flatten, __section__(".text_bram"))) SPI_read(alt_
         /* start read*/
         IOWR_I2C_OPENCORES_CR(base, I2C_OPENCORES_CR_RD_MSK|I2C_OPENCORES_CR_NACK_MSK|I2C_OPENCORES_CR_SPIM_MSK );
         /* wait for the trnasaction to be over.*/
-        while( IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_TIP_MSK);
+        i2c_tip_wait(base);
         /* now read the data */
         if (rdata)
             rdata[i] = IORD_I2C_OPENCORES_RXR(base);
@@ -207,6 +220,6 @@ void __attribute__((noinline, flatten, __section__(".text_bram"))) SPI_write(alt
         /* start write */
         IOWR_I2C_OPENCORES_CR(base, I2C_OPENCORES_CR_WR_MSK|I2C_OPENCORES_CR_NACK_MSK|I2C_OPENCORES_CR_SPIM_MSK );
         /* wait for the trnasaction to be over.*/
-        while( IORD_I2C_OPENCORES_SR(base) & I2C_OPENCORES_SR_TIP_MSK);
+        i2c_tip_wait(base);
     }
 }

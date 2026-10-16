@@ -69,15 +69,14 @@ void ths_set_lpf(alt_u8 val)
 
 void ths_source_sel(ths_input_t input, alt_u8 lpf)
 {
-    alt_u8 status = ths_readreg(THS_CH1) & ~(THS_SRC_MASK|THS_MODE_MASK);
-    //alt_u8 status = 0x00;
+    alt_u8 status = ths_readreg(THS_CH1) & ~(THS_SRC_MASK|THS_MODE_MASK|THS_LPF_MASK);
 
     if (input == THS_STANDBY)
         status |= (THS_MODE_AVMUTE<<THS_MODE_OFFS);
     else
         status |= (THS_MODE_AC_BIAS | (input<<THS_SRC_OFFS));
 
-    //status |= (lpf<<THS_LPF_OFFS);
+    status |= (lpf<<THS_LPF_OFFS);
 
     ths_writereg(THS_CH1, status);
     ths_writereg(THS_CH2, status);

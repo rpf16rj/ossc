@@ -31,7 +31,7 @@ module lat_tester (
     input trigger,
     input VSYNC_in,
     input [1:0] mode_in,
-    output reg [2:0] mode_synced,
+    output reg [1:0] mode_synced,
     output reg [15:0] lat_result,
     output reg [11:0] stb_result,
     output trig_waiting,

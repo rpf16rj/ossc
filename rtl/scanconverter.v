@@ -175,13 +175,14 @@ wire [11:0] LT_BOX_Y_STOP  = (lt_mode == `LT_POS_TOPLEFT) ? (V_ACTIVE/`LT_HEIGHT
 
 
 reg frame_change_sync1_reg, frame_change_sync2_reg, frame_change_prev, frame_change_resync;
+reg ilace_sync1_reg, ilace_sync2_reg;
 wire frame_change = frame_change_sync2_reg;
 
 reg [11:0] h_cnt;
 reg [10:0] v_cnt;
 reg h_avidstart, v_avidstart;
 reg src_fid, dst_fid;
-wire [6:0] panasonic_adjust = (MISC_PANASONIC_HACK & (Y_RPT == 4'h1) & (v_cnt == V_SYNCLEN+V_BACKPORCH+V_ACTIVE-1)) ? 8'd128 : 7'd0;
+wire [7:0] panasonic_adjust = (MISC_PANASONIC_HACK & (Y_RPT == 4'h1) & (v_cnt == V_SYNCLEN+V_BACKPORCH+V_ACTIVE-1)) ? 8'd128 : 8'd0;
 
 reg [10:0] xpos_lb;
 wire [10:0] xpos_lb_start = (X_OFFSET < 10'sd0) ? 11'd0 : {1'b0, X_OFFSET};
@@ -378,10 +379,14 @@ videogen vg0 (
 
 
 // Frame change strobe synchronization
+// Also synchronize interlaced_in_i (originates in the CLK_MEAS domain)
 always @(posedge PCLK_OUT_i) begin
     frame_change_sync1_reg <= frame_change_i;
     frame_change_sync2_reg <= frame_change_sync1_reg;
     frame_change_prev <= frame_change_sync2_reg;
+
+    ilace_sync1_reg <= interlaced_in_i;
+    ilace_sync2_reg <= ilace_sync1_reg;
 
     frame_change_resync <= ~frame_change_prev & frame_change & ~(((v_cnt == V_STARTLINE_PREV) & (h_cnt > H_TOTAL-128)) | ((v_cnt == V_STARTLINE) & (h_cnt < 128)));
 end
@@ -396,7 +401,7 @@ always @(posedge PCLK_OUT_i) begin
         h_cnt <= 0;
         v_cnt <= V_STARTLINE;
         bfi_frame <= 0;
-        src_fid <= (~interlaced_in_i | (V_STARTLINE < (V_TOTAL/2))) ? FID_ODD : FID_EVEN;
+        src_fid <= (~ilace_sync2_reg | (V_STARTLINE < (V_TOTAL/2))) ? FID_ODD : FID_EVEN;
         dst_fid <= (~V_INTERLACED | (V_STARTLINE < (V_TOTAL/2))) ? FID_ODD : FID_EVEN;
         resync_strobe <= 1'b1;
     end else begin
@@ -407,7 +412,7 @@ always @(posedge PCLK_OUT_i) begin
             begin
                 v_cnt <= 0;
                 v_avidstart <= (V_SYNCLEN+V_BACKPORCH-1'b1 == 0);
-                src_fid <= interlaced_in_i ? (src_fid ^ 1'b1) : FID_ODD;
+                src_fid <= ilace_sync2_reg ? (src_fid ^ 1'b1) : FID_ODD;
                 dst_fid <= V_INTERLACED ? (dst_fid ^ 1'b1) : FID_ODD;
                 resync_strobe <= 1'b0;
             end else begin

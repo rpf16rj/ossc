@@ -185,7 +185,7 @@ int parse_control()
         printf("BCODE: 0x%.2lx\n", btn_code>>16);
 
     for (i = RC_BTN1; i < REMOTE_MAX_KEYS; i++) {
-        if (remote_code == rc_keymap[i])
+        if (remote_code && (remote_code == rc_keymap[i]))
             break;
         if (i == REMOTE_MAX_KEYS - 1)
             goto Button_Check;
@@ -311,7 +311,7 @@ int parse_control()
             while (1) {
                 btn_vec = IORD_ALTERA_AVALON_PIO_DATA(PIO_1_BASE) & RC_MASK;
                 for (i = RC_BTN1; i < REMOTE_MAX_KEYS; i++) {
-                    if (btn_vec == rc_keymap[i])
+                    if (btn_vec && (btn_vec == rc_keymap[i]))
                         break;
                 }
 
@@ -377,7 +377,7 @@ Prof_Hotkey_Prompt:
 
                 if ((btn_vec_prev == 0) && (btn_vec != 0)) {
                     for (i = RC_BTN1; i < REMOTE_MAX_KEYS; i++) {
-                        if (btn_vec == rc_keymap[i])
+                        if (btn_vec == rc_keymap[i])  // btn_vec != 0 checked above
                             break;
                     }
 
@@ -420,8 +420,10 @@ Button_Check:
     if (btn_code & PB1_BIT)
         tc.sl_mode = tc.sl_mode < SL_MODE_MAX ? tc.sl_mode + 1 : 0;
 
-    // Parse UART RX buffer
-    if (uart_rx_ret > 0) {
+    // Parse UART RX buffer (bounded to received data; stale bytes must not leak
+    // into the next command)
+    uart_rx_buf[UART_RX_BUF_SIZE] = 0;
+    if (uart_rx_buf_ptr > uart_rx_buf) {
         pos = strpbrk(uart_rx_buf, "\r\n");
 
         if (pos != NULL) {
@@ -449,9 +451,11 @@ Button_Check:
                 dd_printf("Unrecognized command\n");
             }
             uart_rx_buf_ptr = uart_rx_buf;
+            memset(uart_rx_buf, 0, UART_RX_BUF_SIZE);
         } else if (uart_rx_buf_ptr >= uart_rx_buf+UART_RX_BUF_SIZE) {
             dd_printf("\nUnrecognized sequence, RX buffer cleared\n");
             uart_rx_buf_ptr = uart_rx_buf;
+            memset(uart_rx_buf, 0, UART_RX_BUF_SIZE);
         }
     }
 

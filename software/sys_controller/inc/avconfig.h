@@ -118,7 +118,7 @@ typedef struct {
     alt_u8 sl_str;
     alt_u8 sl_id;
     alt_u8 sl_cust_l_str[6];
-    alt_u8 sl_cust_c_str[6];
+    alt_u8 sl_cust_c_str[10];
     alt_u8 sl_cust_iv_x;
     alt_u8 sl_cust_iv_y;
     alt_u8 mask_br;

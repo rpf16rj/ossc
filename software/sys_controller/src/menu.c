@@ -157,6 +157,10 @@ MENU(menu_cust_sl, P99_PROTECT({ \
     { "Sub-column 4 str",                     OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[3],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
     { "Sub-column 5 str",                     OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[4],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
     { "Sub-column 6 str",                     OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[5],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
+    { "Sub-column 7 str",                     OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[6],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
+    { "Sub-column 8 str",                     OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[7],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
+    { "Sub-column 9 str",                     OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[8],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
+    { "Sub-column 10 str",                    OPT_AVCONFIG_NUMVALUE,  { .num = { &tc.sl_cust_c_str[9],      OPT_NOWRAP, 0, SCANLINESTR_MAX+1, sl_cust_str_disp } } },
 }))
 
 
@@ -328,7 +332,11 @@ void write_option_value(const menuitem_t *item, int func_called, int retval)
 {
     switch (item->type) {
         case OPT_AVCONFIG_SELECTION:
-            strncpy(menu_row2, item->sel.setting_str[*(item->sel.data)], LCD_ROW_LEN+1);
+            // a corrupt/out-of-range selection value would index past setting_str
+            if (*(item->sel.data) <= item->sel.max)
+                strncpy(menu_row2, item->sel.setting_str[*(item->sel.data)], LCD_ROW_LEN+1);
+            else
+                sniprintf(menu_row2, LCD_ROW_LEN+1, "Invalid (%u)", *(item->sel.data));
             break;
         case OPT_AVCONFIG_NUMVALUE:
             item->num.df(*(item->num.data));
@@ -581,9 +589,13 @@ int load_shmask(char *dirname, char *filename) {
                 continue;
 
             if (!arr_size_loaded && (sscanf(tmpbuf, "%d,%d", &v0, &v1) == 2)) {
-                c_shmask.arr.iv_x = v0-1;
-                c_shmask.arr.iv_y = v1-1;
-                arr_size_loaded = 1;
+                if ((v0 >= 1) && (v0 <= 16) && (v1 >= 1) && (v1 <= 16)) {
+                    c_shmask.arr.iv_x = v0-1;
+                    c_shmask.arr.iv_y = v1-1;
+                    arr_size_loaded = 1;
+                } else {
+                    printf("Invalid shmask dimensions %d,%d\n", v0, v1);
+                }
             } else if (arr_size_loaded && (v1 > 0)) {
                 p = c_shmask.arr.iv_y+1-v1;
                 if (sscanf(tmpbuf, "%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx,%hx",   &c_shmask.arr.v[p][0],
@@ -634,7 +646,7 @@ int load_lc_nes_pal(char *dirname, char *filename) {
     f_chdir(dirname_root);
 
     if (!file_open(&f_nes_pal, filename)) {
-        if (f_read(&f_nes_pal, tmpbuf, 192, &bytes_read) == FR_OK) {
+        if ((f_read(&f_nes_pal, tmpbuf, 192, &bytes_read) == FR_OK) && (bytes_read == 192)) {
             memset(c_lc_palette_set.pal.nes_pal, 0x00, sizeof(c_lc_palette_set.pal.nes_pal));
             for (i=0x00; i<=0x0C; i++)
                 c_lc_palette_set.pal.nes_pal[i+8] = (tmpbuf[3*i]<<16) | (tmpbuf[3*i+1]<<8) | tmpbuf[3*i+2];

@@ -89,6 +89,8 @@ wire [7:0] ir_code_cnt;
 wire [7:0] R_sc, G_sc, B_sc;
 wire HSYNC_sc, VSYNC_sc, DE_sc;
 wire pll_areset, pll_scanclk, pll_scanclkena, pll_configupdate, pll_scandata, pll_scandone, pll_activeclock;
+reg pll_activeclock_sync1, pll_activeclock_sync2, pll_locked_sync1, pll_locked_sync2;
+reg lt_active_sync1, lt_active_sync2;
 wire PCLK_sc;
 wire pclk_out = PCLK_sc;
 
@@ -119,7 +121,7 @@ reg resync_strobe_sync1_reg, resync_strobe_sync2_reg, resync_strobe_prev;
 wire resync_strobe_i;
 wire resync_strobe = resync_strobe_sync2_reg;
 
-wire [31:0] controls = {ir_code_cnt, 3'b000, vsync_flag_sync2_reg, pll_activeclock, cfg_reg[0], btn_LL, ir_code};
+wire [31:0] controls = {ir_code_cnt, 3'b000, vsync_flag_sync2_reg, pll_activeclock_sync2, cfg_reg[0], btn_LL, ir_code};
 
 wire lt_sensor = btn_LL[1];
 wire lt_trigger = DE_sc & G_sc[0];
@@ -139,7 +141,7 @@ wire lcd_bl_timeout;
 
 wire [2:0] osd_color;
 wire osd_enable_pre;
-wire osd_enable = osd_enable_pre & ~lt_active;
+wire osd_enable = osd_enable_pre & ~lt_active_sync2;
 wire [11:0] xpos_sc;
 wire [10:0] ypos_sc;
 wire [3:0] x_ctr_shmask, y_ctr_shmask;
@@ -303,13 +305,29 @@ always @(posedge clk27) begin
     resync_strobe_prev <= resync_strobe_sync2_reg;
 end
 
+// Synchronize async PLL status signals into clk27
+always @(posedge clk27 or negedge sys_reset_n)
+begin
+    if (!sys_reset_n) begin
+        pll_activeclock_sync1 <= 1'b0;
+        pll_activeclock_sync2 <= 1'b0;
+        pll_locked_sync1 <= 1'b0;
+        pll_locked_sync2 <= 1'b0;
+    end else begin
+        pll_activeclock_sync1 <= pll_activeclock;
+        pll_activeclock_sync2 <= pll_activeclock_sync1;
+        pll_locked_sync1 <= pll_locked;
+        pll_locked_sync2 <= pll_locked_sync1;
+    end
+end
+
 // Generate a warning signal from PLL lock loss
 always @(posedge clk27 or negedge sys_reset_n)
 begin
     if (!sys_reset_n) begin
         warn_pll_lock_lost <= 1'b0;
     end else begin
-        if (~pll_areset & ~pll_locked)
+        if (~pll_areset & ~pll_locked_sync2)
             warn_pll_lock_lost <= 1;
         else if (warn_pll_lock_lost != 0)
             warn_pll_lock_lost <= warn_pll_lock_lost + 1'b1;
@@ -319,7 +337,13 @@ end
 // Control PLL reference clock switchover
 always @(posedge clk27)
 begin
-    pll_clkswitch <= (pll_activeclock != enable_sc);
+    pll_clkswitch <= (pll_activeclock_sync2 != enable_sc);
+end
+
+// Synchronize lt_active (clk27/sys_ctrl) into the output pixel clock domain
+always @(posedge pclk_out) begin
+    lt_active_sync1 <= lt_active;
+    lt_active_sync2 <= lt_active_sync1;
 end
 
 // Output registers

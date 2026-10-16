@@ -99,7 +99,7 @@ begin
                     if (datarcv_cnt == BIT_DETECT_THOLD)
                         bits_detected <= bits_detected + 1'b1;
                         
-                    if (datarcv_cnt == BIT_ONE_THOLD)
+                    if ((datarcv_cnt == BIT_ONE_THOLD) & (bits_detected <= 32))
                         databuf[32-bits_detected] <= 1'b1;
                 end
             else
@@ -117,7 +117,7 @@ begin
     if (!reset_n)
         begin
             ir_code_ack <= 1'b0;
-            ir_code <= 16'h00000000;
+            ir_code <= 16'h0000;
         end
     else
         begin
@@ -128,7 +128,7 @@ begin
                 end
             else if (rpt_cnt >= RPT_RELEASE_THOLD)
                 begin
-                    ir_code <= 16'h00000000;
+                    ir_code <= 16'h0000;
                     ir_code_ack <= 1'b0;
                 end
             else

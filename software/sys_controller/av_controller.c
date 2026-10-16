@@ -178,6 +178,12 @@ void ui_disp_status(alt_u8 refresh_osd_timer) {
     }
 }
 
+// CEA-861 colorimetry: ITU709 for HD outputs (720p and up, incl. 1080i per-field)
+inline int is_itu709_output()
+{
+    return (vmode_out.timings.v_active >= 720) || (vmode_out.timings.interlaced && (vmode_out.timings.v_active >= 540));
+}
+
 inline void SetupAudio(tx_mode_t mode)
 {
     // shut down audio-tx before setting new config (recommended for changing audio-tx config)
@@ -213,7 +219,7 @@ inline void TX_enable(tx_mode_t mode)
     EnableVideoOutput(cm.hdmitx_pclk_level ? PCLK_HIGH : PCLK_MEDIUM, COLOR_RGB444, (mode == TX_HDMI_YCBCR444) ? COLOR_YUV444 : COLOR_RGB444, (mode != TX_DVI));
 
     if (mode != TX_DVI) {
-        HDMITX_SetAVIInfoFrame(vmode_out.vic, (mode == TX_HDMI_RGB) ? F_MODE_RGB444 : F_MODE_YUV444, tc.hdmi_ar, 0, tc.hdmi_itc, vm_conf.hdmitx_pixr_ifr);
+        HDMITX_SetAVIInfoFrame(vmode_out.vic, (mode == TX_HDMI_RGB) ? F_MODE_RGB444 : F_MODE_YUV444, tc.hdmi_ar, is_itu709_output(), tc.hdmi_itc, vm_conf.hdmitx_pixr_ifr);
         if (tc.hdmi_vrr)
             HDMITX_SetVRRInfoFrame(tc.hdmi_vrr);
         if (tc.hdmi_hdr)
@@ -384,8 +390,8 @@ status_t get_status(tvp_sync_input_t syncinput)
     if (sync_active && valid_mode) {
         if ((totlines != cm.totlines) ||
             (progressive != cm.progressive) ||
-            (pcnt_field < (cm.pcnt_field - PCNT_TOLERANCE)) ||
-            (pcnt_field > (cm.pcnt_field + PCNT_TOLERANCE)) ||
+            (pcnt_field + PCNT_TOLERANCE < cm.pcnt_field) ||
+            (pcnt_field > cm.pcnt_field + PCNT_TOLERANCE) ||
             (abs(((int)hsync_width - (int)cm.hsync_width)) > HSYNC_WIDTH_TOLERANCE)) {
             printf("totlines: %lu (cur) / %lu (prev), pcnt_field: %lu (cur) / %lu (prev), hsync_width: %lu (cur) / %lu (prev)\n", totlines, cm.totlines, pcnt_field, cm.pcnt_field, hsync_width, cm.hsync_width);
 
@@ -495,7 +501,7 @@ void update_sc_config()
     sl_config2_reg sl_config2 = {.data=0x00000000};
     sl_config3_reg sl_config3 = {.data=0x00000000};
 
-    if (avconfig->shmask_mode && ((avconfig->shmask_mode != shmask_loaded_array) || (avconfig->shmask_str != shmask_loaded_str))) {
+    if (avconfig->shmask_mode && (avconfig->shmask_mode < SHMASKS_SIZE) && ((avconfig->shmask_mode != shmask_loaded_array) || (avconfig->shmask_str != shmask_loaded_str))) {
         shmask_data_arr_ptr = (shmask_data_arr*)shmask_data_arr_list[avconfig->shmask_mode];
 
         for (p=0; p<=shmask_data_arr_ptr->iv_y; p++) {
@@ -508,10 +514,10 @@ void update_sc_config()
         shmask_loaded_array = avconfig->shmask_mode;
         shmask_loaded_str = avconfig->shmask_str;
     } else {
-        shmask_data_arr_ptr = shmask_loaded_array ? (shmask_data_arr*)shmask_data_arr_list[shmask_loaded_array] : (shmask_data_arr*)shmask_data_arr_list[1];
+        shmask_data_arr_ptr = ((shmask_loaded_array > 0) && (shmask_loaded_array < (int)SHMASKS_SIZE)) ? (shmask_data_arr*)shmask_data_arr_list[shmask_loaded_array] : (shmask_data_arr*)shmask_data_arr_list[1];
     }
 
-    if (avconfig->lumacode_mode && ((avconfig->lumacode_pal*100)+avconfig->lumacode_mode != loaded_lc_palette)) {
+    if (avconfig->lumacode_mode && (avconfig->lumacode_mode < (sizeof(lc_cfg_arr)/sizeof(lc_cfg_arr[0]))) && (avconfig->lumacode_pal < (sizeof(lc_palette_set_list)/sizeof(lc_palette_set_list[0]))) && ((avconfig->lumacode_pal*100)+avconfig->lumacode_mode != loaded_lc_palette)) {
         for (i=0; i<lc_cfg_arr[avconfig->lumacode_mode].size/4; i++)
             sc->lumacode_pal_ram.data[i] = lc_palette_set_list[avconfig->lumacode_pal]->data[(lc_cfg_arr[avconfig->lumacode_mode].offset/4)+i];
         loaded_lc_palette = (avconfig->lumacode_pal*100)+avconfig->lumacode_mode;
@@ -741,7 +747,7 @@ void program_mode()
         cm.hdmitx_pclk_level = hdmitx_pclk_level;
         TX_enable(cm.cc.tx_mode);
     } else if (cm.cc.tx_mode!=TX_DVI) {
-        HDMITX_SetAVIInfoFrame(vmode_out.vic, (cm.cc.tx_mode == TX_HDMI_RGB) ? F_MODE_RGB444 : F_MODE_YUV444, cm.cc.hdmi_ar, 0, cm.cc.hdmi_itc, vm_conf.hdmitx_pixr_ifr);
+        HDMITX_SetAVIInfoFrame(vmode_out.vic, (cm.cc.tx_mode == TX_HDMI_RGB) ? F_MODE_RGB444 : F_MODE_YUV444, cm.cc.hdmi_ar, is_itu709_output(), cm.cc.hdmi_itc, vm_conf.hdmitx_pixr_ifr);
 #ifdef MANUAL_CTS
         SetupAudio(cm.cc.tx_mode);
 #endif
@@ -1240,7 +1246,7 @@ int main(int argc, char **argv, char **envp)
             if ((tc.hdmi_itc != cm.cc.hdmi_itc) || (tc.hdmi_ar != cm.cc.hdmi_ar)) {
                 //EnableAVIInfoFrame(FALSE, NULL);
                 printf("setting ITC to %d\nsetting Aspect-Ratio to %d\n", tc.hdmi_itc, tc.hdmi_ar);
-                HDMITX_SetAVIInfoFrame(vmode_out.vic, (tc.tx_mode == TX_HDMI_RGB) ? F_MODE_RGB444 : F_MODE_YUV444, tc.hdmi_ar, 0, tc.hdmi_itc, vm_conf.hdmitx_pixr_ifr);
+                HDMITX_SetAVIInfoFrame(vmode_out.vic, (tc.tx_mode == TX_HDMI_RGB) ? F_MODE_RGB444 : F_MODE_YUV444, tc.hdmi_ar, is_itu709_output(), tc.hdmi_itc, vm_conf.hdmitx_pixr_ifr);
                 cm.cc.hdmi_itc = tc.hdmi_itc;
                 cm.cc.hdmi_ar = tc.hdmi_ar;
             }

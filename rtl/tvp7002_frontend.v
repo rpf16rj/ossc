@@ -188,6 +188,14 @@ always @(*) begin
     endcase
 end
 
+// Synchronize interlace_flag (updated in CLK_MEAS_i domain) into the capture clock
+reg ilace_sync1_reg, ilace_sync2_reg;
+wire ilace_cap = ilace_sync2_reg;
+always @(posedge PCLK_i) begin
+    ilace_sync1_reg <= interlace_flag;
+    ilace_sync2_reg <= ilace_sync1_reg;
+end
+
 // Pipeline stage 1
 always @(posedge PCLK_i) begin
     R_pp[1] <= R_i;
@@ -209,7 +217,7 @@ always @(posedge PCLK_i) begin
             // regenerated output timings start lagging by one scanline due to vsync detection,
             // compensate by starting v_cnt from 1 (effectively reduces V_SYNCLEN by 1)
             v_cnt <= 1;
-            if (~(interlace_flag & (fid_next == FID_EVEN))) begin
+            if (~(ilace_cap & (fid_next == FID_EVEN))) begin
                 vmax_cnt <= 0;
                 //vtotal <= vmax_cnt + 1'b1;
                 frame_change <= 1'b1;
@@ -239,7 +247,7 @@ always @(posedge PCLK_i) begin
         if ((HS_i_prev & ~HS_i) | (h_cnt_ref < even_min_thold)) begin
             fid_next <= FID_ODD;
             fid_next_ctr <= 2'h1;
-        end else if ((h_cnt_ref > even_max_thold) | ~interlace_flag) begin
+        end else if ((h_cnt_ref > even_max_thold) | ~ilace_cap) begin
             fid_next <= FID_ODD;
             fid_next_ctr <= 2'h2;
         end else begin
@@ -363,9 +371,9 @@ always @(posedge PCLK_i) begin
     B_diff_s15_pre <= (B_pp_prev_rlpf - B_pp[PP_RLPF_START]);
 
     // Cycle 2
-    R_diff_s15 <= (R_diff_s15_pre * MISC_REV_LPF_STR);
-    G_diff_s15 <= (G_diff_s15_pre * MISC_REV_LPF_STR);
-    B_diff_s15 <= (B_diff_s15_pre * MISC_REV_LPF_STR);
+    R_diff_s15 <= (R_diff_s15_pre * $signed({1'b0, MISC_REV_LPF_STR}));
+    G_diff_s15 <= (G_diff_s15_pre * $signed({1'b0, MISC_REV_LPF_STR}));
+    B_diff_s15 <= (B_diff_s15_pre * $signed({1'b0, MISC_REV_LPF_STR}));
 
     // Cycle 3
     if (MISC_REV_LPF_ENABLE & (MISC_LUMACODE_MODE == LC_DISABLED)) begin

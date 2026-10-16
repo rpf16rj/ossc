@@ -141,7 +141,7 @@ always @(posedge vclk) begin
     osd_act_lsec_x_hit <= (xpos_osd_area_scaled/8 < (CHAR_COLS+1));
     osd_act_lsec_en <= config_reg[OSD_ROW_LSEC_ENABLE_REGNUM][(ypos_osd_area_scaled/8) ? ((ypos_osd_area_scaled/8)-1) : 0];
     osd_act_rsec_x_hit <= (xpos_osd_area_scaled/8 >= (CHAR_COLS+1)) & (xpos_osd_area_scaled/8 < (2*CHAR_COLS+CHAR_SEC_SEPARATOR+1));
-    osd_act_rsec_en <= (config_reg[OSD_ROW_RSEC_ENABLE_REGNUM][(ypos_osd_area_scaled/8)-1] | config_reg[OSD_ROW_RSEC_ENABLE_REGNUM][ypos_osd_area_scaled/8]);
+    osd_act_rsec_en <= (config_reg[OSD_ROW_RSEC_ENABLE_REGNUM][(ypos_osd_area_scaled/8) ? ((ypos_osd_area_scaled/8)-1) : 0] | config_reg[OSD_ROW_RSEC_ENABLE_REGNUM][ypos_osd_area_scaled/8]);
     osd_act_y_hit <= (ypos_osd_area_scaled < 8*(CHAR_ROWS+1));
     osd_act_pp[4] <= render_enable &
                      (menu_active || (to_ctr_ms > 0)) &
@@ -150,7 +150,7 @@ always @(posedge vclk) begin
         osd_act_pp[pp_idx] <= osd_act_pp[pp_idx-1];
     end
 
-    char_px <= char_data[y_ptr[5]][x_ptr[5]];
+    char_px <= char_data[y_ptr[5][2:0]][x_ptr[5][2:0]];
 
     osd_enable <= osd_act_pp[6];
 

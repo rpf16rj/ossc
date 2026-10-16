@@ -21,6 +21,8 @@
 #include "flash.h"
 
 #define DEMUX_FINISH_DELAY 10000
+// bound flash status polls: a hung flash device must not freeze the CPU forever
+#define FLASH_POLL_TIMEOUT 1000000
 
 void __attribute__((noinline, flatten, __section__(".text_bram"))) flash_write_protect(flash_ctrl_dev *dev, int enable) {
     int i;
@@ -40,7 +42,7 @@ void __attribute__((noinline, flatten, __section__(".text_bram"))) flash_write_p
     dev->regs->flash_cmd_ctrl = 1;
 
     // Poll status register until write has completed
-    while (1) {
+    for (i = 0; i < FLASH_POLL_TIMEOUT; i++) {
         dev->regs->flash_cmd_cfg = 0x00001805;
         dev->regs->flash_cmd_ctrl = 1;
         if (!(dev->regs->flash_cmd_rddata[0] & (1<<0)))
@@ -75,7 +77,7 @@ void __attribute__((noinline, flatten, __section__(".text_bram"))) flash_sector_
     dev->regs->flash_cmd_ctrl = 1;
 
     // Poll status register until write has completed
-    while (1) {
+    for (i = 0; i < FLASH_POLL_TIMEOUT; i++) {
         dev->regs->flash_cmd_cfg = 0x00001805;
         dev->regs->flash_cmd_ctrl = 1;
         if (!(dev->regs->flash_cmd_rddata[0] & (1<<0)))
