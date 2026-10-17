@@ -1,5 +1,6 @@
 //#include "terasic_includes.h"
 //#include "mcu.h"
+#include <stdbool.h>
 #include <unistd.h>
 #include "it6613_sys.h"
 #include "hdmitx.h"

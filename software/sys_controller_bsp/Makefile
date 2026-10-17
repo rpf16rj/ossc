@@ -330,12 +330,15 @@ BSP_CFLAGS += \
   $(ALT_CFLAGS) \
   $(CFLAGS)
 
+# Picolibc install location (overridable for non-system-wide toolchains)
+PICOLIBC_DIR ?= /usr/lib/picolibc/riscv64-unknown-elf
+
 # Make ready the final list of include directories and other C pre-processor
 # flags. Each include path is made ready by prefixing it with "-I".
 BSP_CPPFLAGS += \
   $(addprefix -I, $(BSP_INC_DIRS)) \
   $(addprefix -I, $(ALT_INCLUDE_DIRS)) \
-  $(addprefix -I, /usr/lib/picolibc/riscv64-unknown-elf/include) \
+  $(addprefix -I, $(PICOLIBC_DIR)/include) \
   $(ALT_CPPFLAGS) \
   $(CPPFLAGS)
 

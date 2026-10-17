@@ -28,3 +28,6 @@ software/sys_controller_bsp/bsp_timestamp
 *.a
 software/sys_controller/mem_init/sys_onchip_memory2_0.bin
 software/sys_controller/mem_init/sys_onchip_memory2_0.hex
+software/sys_controller/mem_init/flash.bin
+software/sys_controller/mem_init/flash.hex
+software/sys_controller/mem_init/chunks/*

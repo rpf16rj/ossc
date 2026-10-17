@@ -1,6 +1,7 @@
 #ifndef HDMI_TX_H_
 #define HDMI_TX_H_
 
+#include <stdbool.h>
 #include "HDMI_COMMON.h"
 #include "alt_types.h"
 #include "hdmitx.h"

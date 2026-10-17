@@ -222,8 +222,12 @@ SYS_LIB :=
 # Define path to the root of the BSP.
 BSP_ROOT_DIR := ../sys_controller_bsp/
 
+# Picolibc install location. Override when the toolchain is not installed
+# system-wide, e.g. PICOLIBC_DIR=$HOME/opt/usr/lib/picolibc/riscv64-unknown-elf
+PICOLIBC_DIR ?= /usr/lib/picolibc/riscv64-unknown-elf
+
 # List of application specific include directories, library directories and library names
-APP_INCLUDE_DIRS += /usr/lib/picolibc/riscv64-unknown-elf/include
+APP_INCLUDE_DIRS += $(PICOLIBC_DIR)/include
 APP_INCLUDE_DIRS += config
 APP_INCLUDE_DIRS += inc
 APP_INCLUDE_DIRS += ic_drivers/it6613
@@ -407,7 +411,7 @@ APP_ASFLAGS := $(APP_ASM_INC_DIRS) \
                $(ASFLAGS)
 
 # Arguments only for the linker.
-APP_LDFLAGS := $(APP_LDFLAGS_USER) --specs=picolibc.specs -nostartfiles
+APP_LDFLAGS := $(APP_LDFLAGS_USER) --specs=$(PICOLIBC_DIR)/picolibc.specs -nostartfiles
 
 ifneq ($(LINKER_SCRIPT),)
 APP_LDFLAGS += -T'$(LINKER_SCRIPT)'

@@ -2,6 +2,7 @@
 // This is the sample program for CAT6611 driver usage.
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <stdbool.h>
 #include "hdmitx.h"
 #include "it6613_sys.h" // richard add
 #include "edid.h" // richard add
