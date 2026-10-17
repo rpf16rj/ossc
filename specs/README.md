@@ -9,8 +9,10 @@ Cada spec segue o formato: **Contexto → Requisitos → Abordagem técnica → 
 Legenda: `[FW]` = somente firmware · `[RTL]` = requer síntese Quartus ·
 Impacto/Esforço: Alto / Médio / Baixo.
 
-**Ambiente:** sem toolchain local (Quartus/RISC-V GCC) — mudanças foram
-revisadas estaticamente; **nada testado em hardware nem compilado**.
+**Ambiente:** firmware **compila e linka** no WSL com riscv64-unknown-elf-gcc
+14.2 + picolibc (ver `AGENTS.md` para a receita). RTL passou em lint
+(iverilog/verible) nos módulos self-contained; a síntese Quartus e o teste em
+hardware continuam **não verificados**.
 
 ## Roadmap priorizado
 
